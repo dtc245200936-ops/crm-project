@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  crm-db:
+    image: mysql:8.0
+    container_name: crm-mysql
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: espocrm
+      MYSQL_USER: crm_user
+      MYSQL_PASSWORD: crm_password
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+
+  crm-app:
+    image: espocrm/espocrm:latest
+    container_name: crm-website
+    ports:
+      - "8080:80"
+    environment:
+      ESPOCRM_DATABASE_HOST: crm-db
+      ESPOCRM_DATABASE_USER: crm_user
+      ESPOCRM_DATABASE_PASSWORD: crm_password
+      ESPOCRM_DATABASE_NAME: espocrm
+      ESPOCRM_ADMIN_USERNAME: admin
+      ESPOCRM_ADMIN_PASSWORD: admin_password
+      ESPOCRM_SITE_URL: "http://192.168.253.129:8080"
+    volumes:
+      - crm_data_data:/var/www/html/data
+      - crm_data_custom:/var/www/html/custom
+      - crm_data_client_custom:/var/www/html/client/custom
+    restart: always
+
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: crm-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: always
+
+  promtail:
+    image: grafana/promtail:2.9.2
+    container_name: crm-promtail
+    privileged: true
+    user: "0"
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    restart: always
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: crm-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: always
+
+volumes:
+  db_data:
+  crm_data_data:
+  crm_data_custom:
+  crm_data_client_custom:
+  grafana_data:
